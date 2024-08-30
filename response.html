@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudSync File Upload</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #e0e0e0;
+            --background-color: #f0f0f0;
+            --text-color: #333;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: var(--background-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: var(--secondary-color);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--primary-color);
+            border-radius: 4px;
+            padding: 2rem;
+            margin-bottom: 1rem;
+            transition: background-color 0.3s ease;
+            background-color: var(--background-color);
+        }
+
+        .upload-area.dragover {
+            background-color: rgba(74, 144, 226, 0.1);
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .file-label {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .file-label:hover {
+            background-color: #3a7cbd;
+        }
+
+        #uploadButton {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 1rem;
+        }
+
+        #uploadButton:hover {
+            background-color: #218838;
+        }
+
+        #uploadButton:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+
+        .success {
+            color: var(--success-color);
+        }
+
+        .error {
+            color: var(--error-color);
+        }
+
+        .file-list {
+            text-align: left;
+            margin-top: 1rem;
+        }
+
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--background-color);
+            padding: 0.5rem;
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+
+        .remove-file {
+            color: var(--error-color);
+            cursor: pointer;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CloudSync File Upload</h1>
+        <div class="upload-area" id="dropZone">
+            <p>Drag & Drop files here or</p>
+            <label for="fileInput" class="file-label">Choose Files</label>
+            <input type="file" id="fileInput" multiple>
+        </div>
+        <div id="fileList" class="file-list"></div>
+        <button id="uploadButton" disabled>Upload Files</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadButton = document.getElementById('uploadButton');
+        const status = document.getElementById('status');
+        const fileList = document.getElementById('fileList');
+
+        let files = [];
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            files.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item fade-in';
+                fileItem.innerHTML = `
+                    <span>${file.name}</span>
+                    <span class="remove-file" data-index="${index}">&#10005;</span>
+                `;
+                fileList.appendChild(fileItem);
+            });
+
+            uploadButton.disabled = files.length === 0;
+        }
+
+        function addFiles(newFiles) {
+            files = [...files, ...newFiles];
+            updateFileList();
+        }
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            addFiles(Array.from(e.dataTransfer.files));
+        });
+
+        fileInput.addEventListener('change', () => {
+            addFiles(Array.from(fileInput.files));
+        });
+
+        fileList.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-file')) {
+                const index = parseInt(e.target.dataset.index);
+                files.splice(index, 1);
+                updateFileList();
+            }
+        });
+
+        uploadButton.addEventListener('click', async () => {
+            status.textContent = '';
+            status.className = '';
+
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (response.ok) {
+                        status.textContent = `${file.name} uploaded successfully.`;
+                        status.className = 'success fade-in';
+                    } else {
+                        throw new Error(response.statusText);
+                    }
+                } catch (error) {
+                    status.textContent = `Error uploading ${file.name}: ${error.message}`;
+                    status.className = 'error fade-in';
+                    break;
+                }
+            }
+
+            if (status.className === 'success fade-in') {
+                files = [];
+                updateFileList();
+            }
+        });
+    </script>
+</body>
+</html>
